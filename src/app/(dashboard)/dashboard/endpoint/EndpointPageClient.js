@@ -55,6 +55,12 @@ export default function APIPageClient({ machineId }) {
 
   // API key visibility toggle state
   const [visibleKeys, setVisibleKeys] = useState(new Set());
+  const [quotaModalKey, setQuotaModalKey] = useState(null);
+  const [quotaEnabled, setQuotaEnabled] = useState(false);
+  const [quotaLimit, setQuotaLimit] = useState("100000");
+  const [quotaPeriod, setQuotaPeriod] = useState("monthly");
+  const [quotaSaving, setQuotaSaving] = useState(false);
+  const [quotaError, setQuotaError] = useState("");
 
   const { copied, copy } = useCopyToClipboard();
 
@@ -605,6 +611,121 @@ export default function APIPageClient({ machineId }) {
     });
   };
 
+  const formatTokenCount = (value) => {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return "0";
+    return n.toLocaleString();
+  };
+
+  const getQuotaView = (key) => {
+    const enabled = key?.quota?.enabled === true;
+    const limit = Number(key?.quota?.limit || 0);
+    const usedTokens = Number(key?.usage?.usedTokens || 0);
+    const remainingTokens = enabled ? Math.max(limit - usedTokens, 0) : null;
+    return {
+      enabled,
+      limit,
+      usedTokens,
+      remainingTokens,
+      period: key?.quota?.period || "monthly",
+      resetAt: key?.quota?.resetAt || null,
+    };
+  };
+
+  const applyQuotaResultToKey = (key, quota) => {
+    if (!quota) return key;
+    return {
+      ...key,
+      quota: {
+        enabled: quota.enabled === true,
+        limit: Number(quota.limit || 0),
+        period: quota.period || key?.quota?.period || "monthly",
+        resetAt: quota.resetAt || null,
+      },
+      usage: {
+        ...(key?.usage || {}),
+        usedTokens: Number(quota.current ?? quota.usedTokens ?? key?.usage?.usedTokens ?? 0),
+        lastResetAt: key?.usage?.lastResetAt || key?.createdAt,
+      },
+    };
+  };
+
+  const openQuotaModal = (key) => {
+    const quota = getQuotaView(key);
+    setQuotaModalKey(key);
+    setQuotaEnabled(quota.enabled);
+    setQuotaLimit(String(quota.limit || 100000));
+    setQuotaPeriod(quota.period || "monthly");
+    setQuotaError("");
+  };
+
+  const closeQuotaModal = () => {
+    if (quotaSaving) return;
+    setQuotaModalKey(null);
+    setQuotaError("");
+  };
+
+  const handleSaveQuota = async () => {
+    if (!quotaModalKey) return;
+    if (quotaEnabled && (!Number.isFinite(Number(quotaLimit)) || Number(quotaLimit) <= 0)) {
+      setQuotaError("Limit harus angka > 0");
+      return;
+    }
+
+    setQuotaSaving(true);
+    setQuotaError("");
+    try {
+      const res = await fetch(`/api/keys/${quotaModalKey.id}/quota`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          enabled: quotaEnabled,
+          limit: Number(quotaLimit),
+          period: quotaPeriod,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setQuotaError(data.error || "Gagal menyimpan quota");
+        return;
+      }
+
+      setKeys((prev) => prev.map((key) => (
+        key.id === quotaModalKey.id ? applyQuotaResultToKey(key, data.quota) : key
+      )));
+      setQuotaModalKey((prev) => (prev ? applyQuotaResultToKey(prev, data.quota) : prev));
+    } catch (error) {
+      setQuotaError(error.message || "Gagal menyimpan quota");
+    } finally {
+      setQuotaSaving(false);
+    }
+  };
+
+  const handleResetQuotaUsage = async () => {
+    if (!quotaModalKey) return;
+
+    setQuotaSaving(true);
+    setQuotaError("");
+    try {
+      const res = await fetch(`/api/keys/${quotaModalKey.id}/quota`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setQuotaError(data.error || "Gagal reset quota");
+        return;
+      }
+
+      setKeys((prev) => prev.map((key) => (
+        key.id === quotaModalKey.id ? applyQuotaResultToKey(key, data.quota) : key
+      )));
+      setQuotaModalKey((prev) => (prev ? applyQuotaResultToKey(prev, data.quota) : prev));
+    } catch (error) {
+      setQuotaError(error.message || "Gagal reset quota");
+    } finally {
+      setQuotaSaving(false);
+    }
+  };
+
   const [baseUrl, setBaseUrl] = useState("/v1");
 
   // Hydration fix: Only access window on client side
@@ -884,66 +1005,94 @@ export default function APIPageClient({ machineId }) {
           </div>
         ) : (
           <div className="flex flex-col">
-            {keys.map((key) => (
-              <div
-                key={key.id}
-                className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{key.name}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <code className="text-xs text-text-muted font-mono">
-                      {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
-                    </code>
-                    <button
-                      onClick={() => toggleKeyVisibility(key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
-                      title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => copy(key.key, key.id)}
-                      className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {copied === key.id ? "check" : "content_copy"}
-                      </span>
-                    </button>
+            {keys.map((key) => {
+              const quota = getQuotaView(key);
+              const quotaRemainingLow = quota.enabled && quota.remainingTokens !== null && quota.remainingTokens <= Math.max(quota.limit * 0.1, 1000);
+              return (
+                <div
+                  key={key.id}
+                  className={`group flex items-center justify-between py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 ${key.isActive === false ? "opacity-60" : ""}`}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{key.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <code className="text-xs text-text-muted font-mono">
+                        {visibleKeys.has(key.id) ? key.key : maskKey(key.key)}
+                      </code>
+                      <button
+                        onClick={() => toggleKeyVisibility(key.id)}
+                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
+                        title={visibleKeys.has(key.id) ? "Hide key" : "Show key"}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => copy(key.key, key.id)}
+                        className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {copied === key.id ? "check" : "content_copy"}
+                        </span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-text-muted mt-1">
+                      Created {new Date(key.createdAt).toLocaleDateString()}
+                    </p>
+                    {quota.enabled ? (
+                      <div className="mt-1 text-xs flex flex-wrap items-center gap-2">
+                        <span className="text-text-muted">
+                          Quota {quota.period}: {formatTokenCount(quota.usedTokens)} / {formatTokenCount(quota.limit)}
+                        </span>
+                        <span className={quotaRemainingLow ? "text-orange-500" : "text-text-muted"}>
+                          Remaining: {formatTokenCount(quota.remainingTokens)}
+                        </span>
+                        {quota.resetAt && quota.period !== "total" && (
+                          <span className="text-text-muted">
+                            Reset: {new Date(quota.resetAt).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-text-muted mt-1">Quota: unlimited</p>
+                    )}
+                    {key.isActive === false && (
+                      <p className="text-xs text-orange-500 mt-1">Paused</p>
+                    )}
                   </div>
-                  <p className="text-xs text-text-muted mt-1">
-                    Created {new Date(key.createdAt).toLocaleDateString()}
-                  </p>
-                  {key.isActive === false && (
-                    <p className="text-xs text-orange-500 mt-1">Paused</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Toggle
-                    size="sm"
-                    checked={key.isActive ?? true}
-                    onChange={(checked) => {
-                      if (key.isActive && !checked) {
-                        if (confirm(`Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`)) {
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openQuotaModal(key)}
+                      className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                      title="Quota settings"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">tune</span>
+                    </button>
+                    <Toggle
+                      size="sm"
+                      checked={key.isActive ?? true}
+                      onChange={(checked) => {
+                        if (key.isActive && !checked) {
+                          if (confirm(`Pause API key "${key.name}"?\n\nThis key will stop working immediately but can be resumed later.`)) {
+                            handleToggleKey(key.id, checked);
+                          }
+                        } else {
                           handleToggleKey(key.id, checked);
                         }
-                      } else {
-                        handleToggleKey(key.id, checked);
-                      }
-                    }}
-                    title={key.isActive ? "Pause key" : "Resume key"}
-                  />
-                  <button
-                    onClick={() => handleDeleteKey(key.id)}
-                    className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
+                      }}
+                      title={key.isActive ? "Pause key" : "Resume key"}
+                    />
+                    <button
+                      onClick={() => handleDeleteKey(key.id)}
+                      className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">delete</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -1014,6 +1163,83 @@ export default function APIPageClient({ machineId }) {
           <Button onClick={() => setCreatedKey(null)} fullWidth>
             Done
           </Button>
+        </div>
+      </Modal>
+
+      {/* Quota Settings Modal */}
+      <Modal
+        isOpen={!!quotaModalKey}
+        title={`Quota Settings${quotaModalKey ? ` • ${quotaModalKey.name}` : ""}`}
+        onClose={closeQuotaModal}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-sidebar/60 border border-border">
+            <div>
+              <p className="text-sm font-medium">Enable quota limit</p>
+              <p className="text-xs text-text-muted">Batasi token per API key</p>
+            </div>
+            <Toggle checked={quotaEnabled} onChange={setQuotaEnabled} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Token limit"
+              type="number"
+              min="1"
+              disabled={!quotaEnabled || quotaSaving}
+              value={quotaLimit}
+              onChange={(e) => setQuotaLimit(e.target.value)}
+              placeholder="100000"
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-text-main">Period</label>
+              <select
+                disabled={!quotaEnabled || quotaSaving}
+                value={quotaPeriod}
+                onChange={(e) => setQuotaPeriod(e.target.value)}
+                className="w-full py-2 px-3 text-sm text-text-main bg-white dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-md focus:ring-1 focus:ring-primary/30 focus:border-primary/50 focus:outline-none"
+              >
+                <option value="daily">Daily</option>
+                <option value="monthly">Monthly</option>
+                <option value="total">Total (no reset)</option>
+              </select>
+            </div>
+          </div>
+
+          {quotaModalKey && (() => {
+            const q = getQuotaView(quotaModalKey);
+            return (
+              <div className="rounded-lg border border-border p-3 text-xs text-text-muted space-y-1">
+                <p>Used: {formatTokenCount(q.usedTokens)}</p>
+                <p>Remaining: {q.enabled ? formatTokenCount(q.remainingTokens) : "Unlimited"}</p>
+                {q.enabled && q.resetAt && q.period !== "total" && (
+                  <p>Next reset: {new Date(q.resetAt).toLocaleString()}</p>
+                )}
+              </div>
+            );
+          })()}
+
+          {quotaError && (
+            <p className="text-sm text-red-500">{quotaError}</p>
+          )}
+
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              onClick={handleResetQuotaUsage}
+              disabled={quotaSaving || !quotaModalKey}
+            >
+              Reset Usage
+            </Button>
+            <Button
+              onClick={handleSaveQuota}
+              disabled={quotaSaving || !quotaModalKey}
+              fullWidth
+            >
+              {quotaSaving ? "Saving..." : "Save Quota"}
+            </Button>
+          </div>
         </div>
       </Modal>
 
