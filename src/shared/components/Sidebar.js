@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
@@ -132,9 +133,13 @@ export default function Sidebar({ onClose }) {
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-9 rounded bg-linear-to-br from-[#f97815] to-[#c2590a]">
-              <span className="material-symbols-outlined text-white text-[20px]">hub</span>
-            </div>
+            <Image
+              src="/appverse-icon-512.svg"
+              alt="AppVerseAi"
+              width={36}
+              height={36}
+              className="size-9 rounded object-cover"
+            />
             <div className="flex flex-col">
               <h1 className="text-lg font-semibold tracking-tight text-text-main">
                 {APP_CONFIG.name}
@@ -346,8 +351,8 @@ export default function Sidebar({ onClose }) {
         isOpen={showUpdateModal}
         onClose={() => setShowUpdateModal(false)}
         onConfirm={handleUpdate}
-        title="Update 9Router"
-        message={`This will close 9Router and install v${updateInfo?.latestVersion || ""} in a separate window. Continue?`}
+        title="Update AppVerseAi"
+        message={`This will close AppVerseAi and install v${updateInfo?.latestVersion || ""} in a separate window. Continue?`}
         confirmText="Update"
         cancelText="Cancel"
         variant="primary"
@@ -397,7 +402,7 @@ function UpdateProgress({ status, latestVersion, installCmd, copied, onCopy }) {
   const errorMsg = status?.error;
 
   const steps = [
-    { key: "stopped", label: "Stopped 9Router server", state: "done" },
+    { key: "stopped", label: "Stopped AppVerseAi server", state: "done" },
     {
       key: "launched",
       label: "Launched background installer",
@@ -439,7 +444,7 @@ function UpdateProgress({ status, latestVersion, installCmd, copied, onCopy }) {
         </div>
         <div>
           <h2 className="text-lg font-semibold">
-            {done && success ? "Update Completed" : done && !success ? "Update Failed" : "Updating 9Router"}
+            {done && success ? "Update Completed" : done && !success ? "Update Failed" : "Updating AppVerseAi"}
           </h2>
           <p className="text-xs text-white/60">
             {done && success
@@ -506,7 +511,7 @@ function UpdateProgress({ status, latestVersion, installCmd, copied, onCopy }) {
         </div>
       ) : (
         <p className="text-xs text-white/50 text-center">
-          This may take 30-60 seconds. Please don't close this window.
+          This may take 30-60 seconds. Please do not close this window.
         </p>
       )}
     </div>

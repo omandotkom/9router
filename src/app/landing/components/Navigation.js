@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function Navigation() {
@@ -16,10 +17,8 @@ export default function Navigation() {
           onClick={() => router.push("/")}
           aria-label="Navigate to home"
         >
-          <div className="size-8 rounded bg-linear-to-br from-[#f97815] to-orange-700 flex items-center justify-center text-white">
-            <span className="material-symbols-outlined text-[20px]">hub</span>
-          </div>
-          <h2 className="text-white text-xl font-bold tracking-tight">9Router</h2>
+          <Image src="/appverse-icon-512.svg" alt="AppVerseAi" width={32} height={32} className="size-8 rounded" />
+          <h2 className="text-white text-xl font-bold tracking-tight">AppVerseAi</h2>
         </button>
 
         {/* Desktop menu */}

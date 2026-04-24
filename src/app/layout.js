@@ -15,10 +15,11 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "9Router - AI Infrastructure Management",
-  description: "One endpoint for all your AI providers. Manage keys, monitor usage, and scale effortlessly.",
+  title: "AppVerseAi - AI Infrastructure Management",
+  description: "Unified AI routing and management for your providers.",
   icons: {
-    icon: "/favicon.svg",
+    icon: "/appverse-favicon-32.svg",
+    shortcut: "/favicon.ico",
   },
 };
 

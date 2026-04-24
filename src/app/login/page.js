@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card, Button, Input } from "@/shared/components";
 import { useRouter } from "next/navigation";
 
@@ -85,7 +86,14 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-bg p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">9Router</h1>
+          <Image
+            src="/appverse-logo-horizontal.svg"
+            alt="AppVerseAi"
+            width={180}
+            height={40}
+            className="h-10 mx-auto mb-4"
+          />
+          <h1 className="text-3xl font-bold text-primary mb-2">AppVerseAi</h1>
           <p className="text-text-muted">Enter your password to access the dashboard</p>
         </div>
 
@@ -112,10 +120,6 @@ export default function LoginPage() {
             >
               Login
             </Button>
-
-            <p className="text-xs text-center text-text-muted mt-2">
-              Default password is <code className="bg-sidebar px-1 rounded">123456</code>
-            </p>
           </form>
         </Card>
       </div>

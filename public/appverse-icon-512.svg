@@ -1,0 +1,49 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="114" fill="#2C3E2D"/>
+
+  <!-- Top-left tile (bright) -->
+  <rect x="82" y="82" width="148" height="148" rx="28" fill="#F7F4EF"/>
+
+  <!-- Top-right tile (tan/gold accent) -->
+  <rect x="282" y="82" width="148" height="148" rx="28" fill="#C8B99A"/>
+
+  <!-- Bottom-left tile (dim) -->
+  <rect x="82" y="282" width="148" height="148" rx="28" fill="#F7F4EF" opacity="0.25"/>
+
+  <!-- Bottom-right tile (medium) -->
+  <rect x="282" y="282" width="148" height="148" rx="28" fill="#F7F4EF" opacity="0.6"/>
+
+  <!-- Star burst center in top-right tile -->
+  <circle cx="356" cy="156" r="40" fill="#2C3E2D"/>
+
+  <!-- Star rays -->
+  <line x1="356" y1="104" x2="356" y2="92"  stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="356" y1="208" x2="356" y2="220" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="304" y1="156" x2="292" y2="156" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="408" y1="156" x2="420" y2="156" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="319" y1="119" x2="311" y2="111" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="393" y1="193" x2="401" y2="201" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="393" y1="119" x2="401" y2="111" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+  <line x1="319" y1="193" x2="311" y2="201" stroke="#2C3E2D" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Star center dot -->
+  <circle cx="356" cy="156" r="20" fill="#F7F4EF"/>
+
+  <!-- Subtle dot in top-left tile -->
+  <circle cx="156" cy="156" r="18" fill="#2C3E2D" opacity="0.15"/>
+
+  <!-- Dot cluster bottom-left tile (faint constellation) -->
+  <circle cx="112" cy="310" r="7" fill="#F7F4EF" opacity="0.4"/>
+  <circle cx="140" cy="330" r="5" fill="#F7F4EF" opacity="0.25"/>
+  <circle cx="170" cy="315" r="7" fill="#F7F4EF" opacity="0.3"/>
+  <circle cx="155" cy="355" r="5" fill="#F7F4EF" opacity="0.2"/>
+  <circle cx="195" cy="340" r="4" fill="#F7F4EF" opacity="0.15"/>
+
+  <!-- Dot cluster bottom-right tile -->
+  <circle cx="312" cy="318" r="8" fill="#F7F4EF" opacity="0.5"/>
+  <circle cx="356" cy="340" r="6" fill="#F7F4EF" opacity="0.35"/>
+  <circle cx="398" cy="320" r="5" fill="#F7F4EF" opacity="0.25"/>
+  <circle cx="380" cy="368" r="7" fill="#F7F4EF" opacity="0.4"/>
+  <circle cx="330" cy="390" r="4" fill="#F7F4EF" opacity="0.2"/>
+</svg>
