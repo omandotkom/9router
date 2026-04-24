@@ -5,7 +5,7 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  checkApiKeyAccess,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings } from "@/lib/localDb";
@@ -72,10 +72,12 @@ export async function handleChat(request, clientRawRequest = null) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+
+    const estimatedTokens = estimateRequestTokens(body);
+    const access = await checkApiKeyAccess(apiKey, estimatedTokens);
+    if (!access.valid) {
+      log.warn("AUTH", `API key access denied: ${access.code}`);
+      return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
   }
 
@@ -110,6 +112,35 @@ export async function handleChat(request, clientRawRequest = null) {
 
   // Single model request
   return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey);
+}
+
+function estimateRequestTokens(body) {
+  try {
+    const input = body.messages || body.input || [];
+    const messages = Array.isArray(input) ? input : [input];
+    let chars = 0;
+
+    for (const message of messages) {
+      if (typeof message === "string") {
+        chars += message.length;
+        continue;
+      }
+
+      const content = message?.content;
+      if (typeof content === "string") {
+        chars += content.length;
+      } else if (Array.isArray(content)) {
+        for (const part of content) {
+          if (typeof part === "string") chars += part.length;
+          else if (typeof part?.text === "string") chars += part.text.length;
+        }
+      }
+    }
+
+    return Math.ceil(chars / 4);
+  } catch {
+    return 0;
+  }
 }
 
 /**

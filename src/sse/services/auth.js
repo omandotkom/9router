@@ -1,4 +1,4 @@
-import { getProviderConnections, validateApiKey, updateProviderConnection, getSettings } from "@/lib/localDb";
+import { getProviderConnections, validateApiKeyAccess, updateProviderConnection, getSettings } from "@/lib/localDb";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { formatRetryAfter, checkFallbackError, isModelLockActive, buildModelLockUpdate, getEarliestModelLockUntil } from "open-sse/services/accountFallback.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
@@ -277,5 +277,19 @@ export function extractApiKey(request) {
  */
 export async function isValidApiKey(apiKey) {
   if (!apiKey) return false;
-  return await validateApiKey(apiKey);
+  const result = await validateApiKeyAccess(apiKey, 0);
+  return result.valid;
+}
+
+export async function checkApiKeyAccess(apiKey, estimatedTokens = 0) {
+  if (!apiKey) {
+    return {
+      valid: false,
+      code: "missing_api_key",
+      status: 401,
+      message: "Missing API key",
+    };
+  }
+
+  return validateApiKeyAccess(apiKey, estimatedTokens);
 }

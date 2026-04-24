@@ -9,6 +9,7 @@ import { DATA_DIR } from "@/lib/dataDir.js";
 const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const isCloud = typeof caches !== 'undefined' || typeof caches === 'object';
 const DB_FILE = isCloud ? null : path.join(DATA_DIR, "db.json");
+const API_KEY_QUOTA_PERIODS = new Set(["daily", "monthly", "total"]);
 
 if (!isCloud && !fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -100,6 +101,57 @@ function ensureDbShape(data) {
         if (apiKey.isActive === undefined || apiKey.isActive === null) {
           apiKey.isActive = true;
           changed = true;
+        }
+
+        if (!apiKey.quota || typeof apiKey.quota !== "object") {
+          apiKey.quota = {
+            enabled: false,
+            limit: 100000,
+            period: "monthly",
+            resetAt: null,
+          };
+          changed = true;
+        } else {
+          if (apiKey.quota.enabled === undefined) {
+            apiKey.quota.enabled = false;
+            changed = true;
+          }
+          if (!Number.isFinite(Number(apiKey.quota.limit)) || Number(apiKey.quota.limit) <= 0) {
+            apiKey.quota.limit = 100000;
+            changed = true;
+          } else {
+            apiKey.quota.limit = Number(apiKey.quota.limit);
+          }
+          if (!API_KEY_QUOTA_PERIODS.has(apiKey.quota.period)) {
+            apiKey.quota.period = "monthly";
+            changed = true;
+          }
+          if (apiKey.quota.resetAt === undefined) {
+            apiKey.quota.resetAt = null;
+            changed = true;
+          }
+        }
+
+        if (!apiKey.usage || typeof apiKey.usage !== "object") {
+          apiKey.usage = {
+            usedTokens: 0,
+            lastResetAt: apiKey.createdAt || new Date().toISOString(),
+          };
+          changed = true;
+        } else {
+          const used = Number(apiKey.usage.usedTokens || 0);
+          if (!Number.isFinite(used) || used < 0) {
+            apiKey.usage.usedTokens = 0;
+            changed = true;
+          } else if (apiKey.usage.usedTokens !== used) {
+            apiKey.usage.usedTokens = used;
+            changed = true;
+          }
+
+          if (!apiKey.usage.lastResetAt) {
+            apiKey.usage.lastResetAt = apiKey.createdAt || new Date().toISOString();
+            changed = true;
+          }
         }
       }
     }
@@ -634,6 +686,102 @@ function generateShortKey() {
   return result;
 }
 
+function getNextQuotaResetAt(period, fromDate = new Date()) {
+  if (period === "total") return null;
+
+  const now = new Date(fromDate);
+  if (period === "daily") {
+    now.setDate(now.getDate() + 1);
+    now.setHours(0, 0, 0, 0);
+    return now.toISOString();
+  }
+
+  now.setMonth(now.getMonth() + 1);
+  now.setDate(1);
+  now.setHours(0, 0, 0, 0);
+  return now.toISOString();
+}
+
+function ensureApiKeyQuotaShape(apiKey, fallbackDate = new Date().toISOString()) {
+  if (!apiKey.quota || typeof apiKey.quota !== "object") {
+    apiKey.quota = {
+      enabled: false,
+      limit: 100000,
+      period: "monthly",
+      resetAt: null,
+    };
+  }
+
+  if (!apiKey.usage || typeof apiKey.usage !== "object") {
+    apiKey.usage = {
+      usedTokens: 0,
+      lastResetAt: fallbackDate,
+    };
+  }
+}
+
+function normalizeQuotaInput(input = {}) {
+  const enabled = input.enabled !== undefined ? Boolean(input.enabled) : true;
+  const limitRaw = input.limit !== undefined ? Number(input.limit) : 100000;
+  const period = typeof input.period === "string" ? input.period : "monthly";
+
+  if (enabled && (!Number.isFinite(limitRaw) || limitRaw <= 0)) {
+    throw new Error("limit must be a positive number");
+  }
+  if (!API_KEY_QUOTA_PERIODS.has(period)) {
+    throw new Error("period must be one of: daily, monthly, total");
+  }
+
+  return {
+    enabled,
+    limit: Math.floor(limitRaw || 100000),
+    period,
+  };
+}
+
+function getApiKeyUsedTokens(apiKey) {
+  const used = Number(apiKey?.usage?.usedTokens || 0);
+  return Number.isFinite(used) && used > 0 ? used : 0;
+}
+
+function maybeResetApiKeyQuota(apiKey, now = new Date()) {
+  ensureApiKeyQuotaShape(apiKey);
+
+  if (!apiKey.quota.enabled || apiKey.quota.period === "total") {
+    return false;
+  }
+
+  if (!apiKey.quota.resetAt) {
+    apiKey.quota.resetAt = getNextQuotaResetAt(apiKey.quota.period, now);
+    return true;
+  }
+
+  const resetAt = new Date(apiKey.quota.resetAt).getTime();
+  if (!Number.isFinite(resetAt) || now.getTime() < resetAt) {
+    return false;
+  }
+
+  apiKey.usage.usedTokens = 0;
+  apiKey.usage.lastResetAt = now.toISOString();
+  apiKey.quota.resetAt = getNextQuotaResetAt(apiKey.quota.period, now);
+  return true;
+}
+
+function buildQuotaStatus(apiKey) {
+  ensureApiKeyQuotaShape(apiKey);
+  const usedTokens = getApiKeyUsedTokens(apiKey);
+  const limit = Number(apiKey.quota.limit || 0);
+  const enabled = apiKey.quota.enabled === true;
+  return {
+    enabled,
+    limit,
+    period: apiKey.quota.period,
+    resetAt: apiKey.quota.resetAt,
+    usedTokens,
+    remainingTokens: enabled ? Math.max(limit - usedTokens, 0) : null,
+  };
+}
+
 export async function createApiKey(name, machineId) {
   if (!machineId) throw new Error("machineId is required");
 
@@ -649,6 +797,16 @@ export async function createApiKey(name, machineId) {
     key: result.key,
     machineId: machineId,
     isActive: true,
+    quota: {
+      enabled: false,
+      limit: 100000,
+      period: "monthly",
+      resetAt: null,
+    },
+    usage: {
+      usedTokens: 0,
+      lastResetAt: now,
+    },
     createdAt: now,
   };
 
@@ -681,10 +839,115 @@ export async function updateApiKey(id, data) {
   return db.data.apiKeys[index];
 }
 
-export async function validateApiKey(key) {
+export async function getApiKeyByValue(key) {
   const db = await getDb();
-  const found = db.data.apiKeys.find(k => k.key === key);
-  return found && found.isActive !== false;
+  return db.data.apiKeys.find((entry) => entry.key === key) || null;
+}
+
+export async function getApiKeyQuota(id) {
+  const db = await getDb();
+  const apiKey = db.data.apiKeys.find((entry) => entry.id === id);
+  if (!apiKey) return null;
+
+  const changed = maybeResetApiKeyQuota(apiKey);
+  if (changed) await safeWrite(db);
+
+  return buildQuotaStatus(apiKey);
+}
+
+export async function setApiKeyQuota(id, input) {
+  const db = await getDb();
+  const index = db.data.apiKeys.findIndex((entry) => entry.id === id);
+  if (index === -1) return null;
+
+  const now = new Date();
+  const apiKey = db.data.apiKeys[index];
+  ensureApiKeyQuotaShape(apiKey, now.toISOString());
+
+  const quota = normalizeQuotaInput(input);
+  apiKey.quota.enabled = quota.enabled;
+  apiKey.quota.limit = quota.limit;
+  apiKey.quota.period = quota.period;
+  apiKey.quota.resetAt = quota.enabled ? getNextQuotaResetAt(quota.period, now) : null;
+
+  if (!apiKey.usage.lastResetAt) {
+    apiKey.usage.lastResetAt = now.toISOString();
+  }
+
+  await safeWrite(db);
+  return buildQuotaStatus(apiKey);
+}
+
+export async function resetApiKeyQuota(id) {
+  const db = await getDb();
+  const apiKey = db.data.apiKeys.find((entry) => entry.id === id);
+  if (!apiKey) return null;
+
+  const now = new Date();
+  ensureApiKeyQuotaShape(apiKey, now.toISOString());
+  apiKey.usage.usedTokens = 0;
+  apiKey.usage.lastResetAt = now.toISOString();
+  if (apiKey.quota.enabled && apiKey.quota.period !== "total") {
+    apiKey.quota.resetAt = getNextQuotaResetAt(apiKey.quota.period, now);
+  }
+  await safeWrite(db);
+  return buildQuotaStatus(apiKey);
+}
+
+export async function validateApiKeyAccess(key, requestedTokens = 0) {
+  const db = await getDb();
+  const apiKey = db.data.apiKeys.find((entry) => entry.key === key);
+  if (!apiKey) {
+    return { valid: false, code: "invalid_api_key", status: 401, message: "Invalid API key" };
+  }
+  if (apiKey.isActive === false) {
+    return { valid: false, code: "inactive_api_key", status: 401, message: "API key is inactive", apiKeyId: apiKey.id };
+  }
+
+  const changed = maybeResetApiKeyQuota(apiKey);
+  const quota = buildQuotaStatus(apiKey);
+  const requestCost = Number(requestedTokens || 0);
+  if (quota.enabled) {
+    if (quota.usedTokens >= quota.limit || (Number.isFinite(requestCost) && requestCost > 0 && quota.usedTokens + requestCost > quota.limit)) {
+      if (changed) await safeWrite(db);
+      return {
+        valid: false,
+        code: "quota_exceeded",
+        status: 429,
+        message: "API key quota exceeded",
+        apiKeyId: apiKey.id,
+        quota,
+      };
+    }
+  }
+
+  if (changed) await safeWrite(db);
+  return { valid: true, apiKeyId: apiKey.id, quota };
+}
+
+export async function consumeApiKeyTokensByKey(key, tokenCount) {
+  const tokens = Number(tokenCount || 0);
+  if (!Number.isFinite(tokens) || tokens <= 0) return null;
+
+  const db = await getDb();
+  const apiKey = db.data.apiKeys.find((entry) => entry.key === key);
+  if (!apiKey || apiKey.isActive === false) return null;
+
+  const changed = maybeResetApiKeyQuota(apiKey);
+  const quota = buildQuotaStatus(apiKey);
+  if (!quota.enabled) {
+    if (changed) await safeWrite(db);
+    return quota;
+  }
+
+  apiKey.usage.usedTokens = quota.usedTokens + tokens;
+  await safeWrite(db);
+  return buildQuotaStatus(apiKey);
+}
+
+export async function validateApiKey(key) {
+  const result = await validateApiKeyAccess(key, 0);
+  return result.valid;
 }
 
 export async function cleanupProviderConnections() {

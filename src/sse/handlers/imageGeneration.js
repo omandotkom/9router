@@ -3,7 +3,7 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  checkApiKeyAccess,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
@@ -47,10 +47,10 @@ export async function handleImageGeneration(request) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const access = await checkApiKeyAccess(apiKey, estimateImagePromptTokens(body));
+    if (!access.valid) {
+      log.warn("AUTH", `API key access denied: ${access.code}`);
+      return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
   }
 
@@ -149,4 +149,9 @@ export async function handleImageGeneration(request) {
 
     return result.response;
   }
+}
+
+function estimateImagePromptTokens(body) {
+  const prompt = typeof body?.prompt === "string" ? body.prompt : "";
+  return Math.ceil(prompt.length / 4);
 }

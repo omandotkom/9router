@@ -3,7 +3,7 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  checkApiKeyAccess,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
@@ -48,10 +48,10 @@ export async function handleEmbeddings(request) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const access = await checkApiKeyAccess(apiKey, estimateEmbeddingTokens(body.input));
+    if (!access.valid) {
+      log.warn("AUTH", `API key access denied: ${access.code}`);
+      return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
   }
 
@@ -139,4 +139,13 @@ export async function handleEmbeddings(request) {
 
     return result.response;
   }
+}
+
+function estimateEmbeddingTokens(input) {
+  const normalized = Array.isArray(input) ? input : [input];
+  let chars = 0;
+  for (const item of normalized) {
+    if (typeof item === "string") chars += item.length;
+  }
+  return Math.ceil(chars / 4);
 }

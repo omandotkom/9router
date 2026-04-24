@@ -4,6 +4,7 @@ import { EventEmitter } from "events";
 import path from "path";
 import fs from "fs";
 import { DATA_DIR } from "@/lib/dataDir.js";
+import { consumeApiKeyTokensByKey } from "@/lib/localDb.js";
 
 const isCloud = typeof caches !== 'undefined' || typeof caches === 'object';
 const DB_FILE = isCloud ? null : path.join(DATA_DIR, "usage.json");
@@ -87,6 +88,15 @@ function migrateHistoryToDailySummary(db) {
   }
   console.log(`[usageDb] Migrated ${history.length} history entries to dailySummary (${Object.keys(db.data.dailySummary).length} days)`);
   return true;
+}
+
+function totalTokensFromUsage(tokens) {
+  if (!tokens || typeof tokens !== "object") return 0;
+  const prompt = Number(tokens.prompt_tokens || tokens.input_tokens || 0) || 0;
+  const completion = Number(tokens.completion_tokens || tokens.output_tokens || 0) || 0;
+  const cached = Number(tokens.cached_tokens || tokens.cache_read_input_tokens || 0) || 0;
+  const reasoning = Number(tokens.reasoning_tokens || 0) || 0;
+  return Math.max(prompt + completion + cached + reasoning, 0);
 }
 
 // Singleton instance
@@ -301,6 +311,13 @@ export async function saveRequestUsage(entry) {
     entry.cost = entryCost;
     db.data.history.push(entry);
     db.data.totalRequestsLifetime += 1;
+
+    if (entry.apiKey && typeof entry.apiKey === "string") {
+      const spentTokens = totalTokensFromUsage(entry.tokens);
+      if (spentTokens > 0) {
+        await consumeApiKeyTokensByKey(entry.apiKey, spentTokens);
+      }
+    }
 
     if (!db.data.dailySummary) db.data.dailySummary = {};
     aggregateEntryToDailySummary(db.data.dailySummary, entry);
