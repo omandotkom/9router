@@ -27,6 +27,10 @@ function normalizeName(name) {
   return name.trim();
 }
 
+function isQuotaValidationError(message) {
+  return message === "limit must be a positive number" || message === "period must be one of: daily, monthly, total";
+}
+
 export async function OPTIONS(request) {
   return serviceCorsResponse(request, ["GET", "POST", "OPTIONS"]);
 }
@@ -52,7 +56,13 @@ export async function POST(request) {
   }
 
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return serviceJson(request, { error: "Invalid JSON body" }, { status: 400 });
+    }
+
     const name = normalizeName(body?.name);
 
     if (!name) {
@@ -83,7 +93,12 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error("[Service API] Failed to create API key:", error);
-    return serviceJson(request, { error: error.message || "Failed to create API key" }, { status: 500 });
+
+    const message = error?.message || "Failed to create API key";
+    if (isQuotaValidationError(message)) {
+      return serviceJson(request, { error: message }, { status: 400 });
+    }
+
+    return serviceJson(request, { error: message }, { status: 500 });
   }
 }
-
