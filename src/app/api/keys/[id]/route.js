@@ -21,7 +21,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
-    const { isActive } = body;
+    const { isActive, requestDelayMs } = body;
 
     const existing = await getApiKeyById(id);
     if (!existing) {
@@ -30,6 +30,13 @@ export async function PUT(request, { params }) {
 
     const updateData = {};
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (requestDelayMs !== undefined) {
+      const n = Number(requestDelayMs);
+      if (!Number.isFinite(n) || n < 0) {
+        return NextResponse.json({ error: "requestDelayMs must be a non-negative number" }, { status: 400 });
+      }
+      updateData.requestDelayMs = Math.min(Math.floor(n), 60000);
+    }
 
     const updated = await updateApiKey(id, updateData);
 

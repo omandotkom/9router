@@ -4,6 +4,7 @@ import {
   clearAccountError,
   extractApiKey,
   checkApiKeyAccess,
+  applyApiKeyDelay,
 } from "../services/auth.js";
 import { getSettings } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
@@ -53,6 +54,7 @@ export async function handleEmbeddings(request) {
       log.warn("AUTH", `API key access denied: ${access.code}`);
       return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
+    await applyApiKeyDelay(access, "EMBEDDINGS");
   }
 
   if (!modelStr) {

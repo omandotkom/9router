@@ -321,3 +321,10 @@ export async function checkApiKeyAccess(apiKey, estimatedTokens = 0) {
 
   return validateApiKeyAccess(apiKey, estimatedTokens);
 }
+
+export async function applyApiKeyDelay(access, tag = "API") {
+  const delayMs = Number(access?.requestDelayMs || 0);
+  if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  log.debug("THROTTLE", `${tag} delayed ${delayMs}ms`);
+}

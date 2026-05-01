@@ -3,7 +3,8 @@ import {
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
-  isValidApiKey,
+  checkApiKeyAccess,
+  applyApiKeyDelay,
 } from "../services/auth.js";
 import { getSettings, getCombos } from "@/lib/localDb";
 import { AI_PROVIDERS, resolveProviderId } from "@/shared/constants/providers.js";
@@ -51,11 +52,12 @@ export async function handleSearch(request) {
       log.warn("AUTH", "Missing API key (requireApiKey=true)");
       return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Missing API key");
     }
-    const valid = await isValidApiKey(apiKey);
-    if (!valid) {
-      log.warn("AUTH", "Invalid API key (requireApiKey=true)");
-      return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
+    const access = await checkApiKeyAccess(apiKey, 0);
+    if (!access.valid) {
+      log.warn("AUTH", `API key access denied: ${access.code}`);
+      return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
+    await applyApiKeyDelay(access, "SEARCH");
   }
 
   if (!providerInput || typeof providerInput !== "string") {

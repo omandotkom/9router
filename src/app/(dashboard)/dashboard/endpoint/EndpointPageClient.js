@@ -69,6 +69,10 @@ export default function APIPageClient({ machineId }) {
   const [quotaPeriod, setQuotaPeriod] = useState("monthly");
   const [quotaSaving, setQuotaSaving] = useState(false);
   const [quotaError, setQuotaError] = useState("");
+  const [delayModalKey, setDelayModalKey] = useState(null);
+  const [requestDelayMs, setRequestDelayMs] = useState("0");
+  const [delaySaving, setDelaySaving] = useState(false);
+  const [delayError, setDelayError] = useState("");
 
   const { copied, copy } = useCopyToClipboard();
 
@@ -629,6 +633,49 @@ export default function APIPageClient({ machineId }) {
     }
   };
 
+  const openDelayModal = (key) => {
+    setDelayModalKey(key);
+    setRequestDelayMs(String(Number(key?.requestDelayMs || 0)));
+    setDelayError("");
+  };
+
+  const closeDelayModal = () => {
+    if (delaySaving) return;
+    setDelayModalKey(null);
+    setDelayError("");
+  };
+
+  const handleSaveRequestDelay = async () => {
+    if (!delayModalKey) return;
+    const n = Number(requestDelayMs);
+    if (!Number.isFinite(n) || n < 0) {
+      setDelayError("Request delay harus angka >= 0");
+      return;
+    }
+
+    setDelaySaving(true);
+    setDelayError("");
+    try {
+      const res = await fetch(`/api/keys/${delayModalKey.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestDelayMs: Math.min(Math.floor(n), 60000) }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDelayError(data.error || "Gagal menyimpan request delay");
+        return;
+      }
+
+      setKeys((prev) => prev.map((key) => (key.id === delayModalKey.id ? data.key : key)));
+      setDelayModalKey(data.key);
+    } catch (error) {
+      setDelayError(error.message || "Gagal menyimpan request delay");
+    } finally {
+      setDelaySaving(false);
+    }
+  };
+
   const maskKey = (fullKey) => {
     if (!fullKey) return "";
     return fullKey.length > 8 ? fullKey.slice(0, 8) + "..." : fullKey;
@@ -1122,11 +1169,19 @@ export default function APIPageClient({ machineId }) {
                     ) : (
                       <p className="text-xs text-text-muted mt-1">Quota: unlimited</p>
                     )}
+                    <p className="text-xs text-text-muted mt-1">Request delay: {Number(key.requestDelayMs || 0)} ms</p>
                     {key.isActive === false && (
                       <p className="text-xs text-orange-500 mt-1">Paused</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openDelayModal(key)}
+                      className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
+                      title="Request delay settings"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">hourglass_bottom</span>
+                    </button>
                     <button
                       onClick={() => openQuotaModal(key)}
                       className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded text-text-muted hover:text-primary transition-all"
@@ -1305,6 +1360,42 @@ export default function APIPageClient({ machineId }) {
               {quotaSaving ? "Saving..." : "Save Quota"}
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Request Delay Modal */}
+      <Modal
+        isOpen={!!delayModalKey}
+        title={`Request Delay${delayModalKey ? ` • ${delayModalKey.name}` : ""}`}
+        onClose={closeDelayModal}
+      >
+        <div className="flex flex-col gap-4">
+          <Input
+            label="Delay per request (ms)"
+            type="number"
+            min="0"
+            max="60000"
+            disabled={delaySaving}
+            value={requestDelayMs}
+            onChange={(e) => setRequestDelayMs(e.target.value)}
+            placeholder="0"
+          />
+
+          <div className="rounded-lg border border-border p-3 text-xs text-text-muted">
+            Berlaku per API key setelah validasi berhasil. Rekomendasi awal: 100-500 ms.
+          </div>
+
+          {delayError && (
+            <p className="text-sm text-red-500">{delayError}</p>
+          )}
+
+          <Button
+            onClick={handleSaveRequestDelay}
+            disabled={delaySaving || !delayModalKey}
+            fullWidth
+          >
+            {delaySaving ? "Saving..." : "Save Request Delay"}
+          </Button>
         </div>
       </Modal>
 

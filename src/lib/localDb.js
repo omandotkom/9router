@@ -10,6 +10,7 @@ const DEFAULT_MITM_ROUTER_BASE = "http://localhost:20128";
 const isCloud = typeof caches !== 'undefined' || typeof caches === 'object';
 const DB_FILE = isCloud ? null : path.join(DATA_DIR, "db.json");
 const API_KEY_QUOTA_PERIODS = new Set(["daily", "monthly", "total"]);
+const MAX_API_KEY_DELAY_MS = 60000;
 
 if (!isCloud && !fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -103,6 +104,17 @@ function ensureDbShape(data) {
         if (apiKey.isActive === undefined || apiKey.isActive === null) {
           apiKey.isActive = true;
           changed = true;
+        }
+        const requestDelayMs = Number(apiKey.requestDelayMs || 0);
+        if (!Number.isFinite(requestDelayMs) || requestDelayMs < 0) {
+          apiKey.requestDelayMs = 0;
+          changed = true;
+        } else {
+          const normalizedDelay = Math.min(Math.floor(requestDelayMs), MAX_API_KEY_DELAY_MS);
+          if (apiKey.requestDelayMs !== normalizedDelay) {
+            apiKey.requestDelayMs = normalizedDelay;
+            changed = true;
+          }
         }
 
         if (!apiKey.quota || typeof apiKey.quota !== "object") {
@@ -742,6 +754,12 @@ function normalizeQuotaInput(input = {}) {
   };
 }
 
+function normalizeRequestDelayMs(input) {
+  const n = Number(input);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(Math.floor(n), MAX_API_KEY_DELAY_MS);
+}
+
 function getApiKeyUsedTokens(apiKey) {
   const used = Number(apiKey?.usage?.usedTokens || 0);
   return Number.isFinite(used) && used > 0 ? used : 0;
@@ -800,6 +818,7 @@ export async function createApiKey(name, machineId) {
     key: result.key,
     machineId: machineId,
     isActive: true,
+    requestDelayMs: 0,
     quota: {
       enabled: false,
       limit: 100000,
@@ -904,7 +923,14 @@ export async function validateApiKeyAccess(key, requestedTokens = 0) {
     return { valid: false, code: "invalid_api_key", status: 401, message: "Invalid API key" };
   }
   if (apiKey.isActive === false) {
-    return { valid: false, code: "inactive_api_key", status: 401, message: "API key is inactive", apiKeyId: apiKey.id };
+    return {
+      valid: false,
+      code: "inactive_api_key",
+      status: 401,
+      message: "API key is inactive",
+      apiKeyId: apiKey.id,
+      requestDelayMs: normalizeRequestDelayMs(apiKey.requestDelayMs),
+    };
   }
 
   const changed = maybeResetApiKeyQuota(apiKey);
@@ -919,13 +945,19 @@ export async function validateApiKeyAccess(key, requestedTokens = 0) {
         status: 429,
         message: "API key quota exceeded",
         apiKeyId: apiKey.id,
+        requestDelayMs: normalizeRequestDelayMs(apiKey.requestDelayMs),
         quota,
       };
     }
   }
 
   if (changed) await safeWrite(db);
-  return { valid: true, apiKeyId: apiKey.id, quota };
+  return {
+    valid: true,
+    apiKeyId: apiKey.id,
+    requestDelayMs: normalizeRequestDelayMs(apiKey.requestDelayMs),
+    quota
+  };
 }
 
 export async function consumeApiKeyTokensByKey(key, tokenCount) {

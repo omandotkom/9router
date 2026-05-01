@@ -7,6 +7,7 @@ import {
   clearAccountError,
   extractApiKey,
   checkApiKeyAccess,
+  applyApiKeyDelay,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
 import { getSettings, getProviderConnections as getProviderConnectionsDirect } from "@/lib/localDb";
@@ -80,6 +81,7 @@ export async function handleChat(request, clientRawRequest = null) {
       log.warn("AUTH", `API key access denied: ${access.code}`);
       return errorResponse(access.status || HTTP_STATUS.UNAUTHORIZED, access.message || "Invalid API key");
     }
+    await applyApiKeyDelay(access, "CHAT");
   }
 
   if (!modelStr) {
