@@ -9,7 +9,7 @@ import {
   checkApiKeyAccess,
 } from "../services/auth.js";
 import { cacheClaudeHeaders } from "open-sse/utils/claudeHeaderCache.js";
-import { getSettings } from "@/lib/localDb";
+import { getSettings, getProviderConnections as getProviderConnectionsDirect } from "@/lib/localDb";
 import { getModelInfo, getComboModels } from "../services/model.js";
 import { handleChatCore } from "open-sse/handlers/chatCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
@@ -181,7 +181,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   console.log("[DISABLED_CHECK] Request modelStr:", modelStr, "resolved provider:", provider, "model:", model);
   
   // Also check all connections for this specific model (model might be resolved to wrong provider)
-  const allConns = await getProviderConnections({ isActive: true });
+  const allConns = await getProviderConnectionsDirect({ isActive: true });
   console.log("[DISABLED_CHECK] All active connections:", allConns.map(c => c.provider));
   
   // Check if model appears in any connection's disabledModels

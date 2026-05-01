@@ -5,6 +5,8 @@ import { MAX_RATE_LIMIT_COOLDOWN_MS } from "open-sse/config/errorConfig.js";
 import { resolveProviderId, FREE_PROVIDERS } from "@/shared/constants/providers.js";
 import * as log from "../utils/logger.js";
 
+export { getProviderConnections };
+
 // Mutex to prevent race conditions during account selection
 let selectionMutex = Promise.resolve();
 
