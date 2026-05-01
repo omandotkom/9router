@@ -186,18 +186,33 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
   
   // Check if model appears in any connection's disabledModels
   let isModelDisabled = false;
+  console.log("[DISABLED_CHECK] Checking model:", model, "modelStr:", modelStr);
   for (const conn of allConns) {
     const psd = conn.providerSpecificData || {};
     const dm = psd.disabledModels || [];
     if (dm.length > 0) {
-      const matches = dm.filter(m => 
+      const checkMatches = (m) => 
         m === model || 
         m === modelStr || 
-        m.endsWith(`/${model}`) ||
-        m.includes(model)
-      );
+        m === `${conn.provider}/${model}` || 
+        m.endsWith(`/${model}`) || 
+        (modelStr && (m.includes(modelStr) || modelStr.includes(m)));
+      const matches = dm.filter(checkMatches);
+      console.log("[DISABLED_CHECK] conn:", conn.provider, "disabledModels:", dm, "matches:", matches);
       if (matches.length > 0) {
-        console.log("[DISABLED_CHECK] Found disabled model in provider:", conn.provider, "disabled:", dm);
+        isModelDisabled = true;
+        break;
+      }
+    }
+  }
+  
+  // Also check global settings disabled models
+  const settings = await getSettings();
+  const globalDisabled = settings.disabledModels || [];
+  if (!isModelDisabled && globalDisabled.length > 0) {
+    console.log("[DISABLED_CHECK] global disabledModels:", globalDisabled);
+    for (const m of globalDisabled) {
+      if (m === model || m === modelStr || (modelStr && (m.includes(modelStr) || modelStr.includes(m)))) {
         isModelDisabled = true;
         break;
       }
