@@ -2,6 +2,7 @@ import "open-sse/index.js";
 
 import {
   getProviderCredentials,
+  getProviderConnections,
   markAccountUnavailable,
   clearAccountError,
   extractApiKey,
@@ -175,27 +176,51 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
 
   const { provider, model } = modelInfo;
 
-  // Check if model is disabled (get credentials without exclusions to check first)
-  const checkCreds = await getProviderCredentials(provider, new Set(), model);
-  if (checkCreds && checkCreds.providerSpecificData?.disabledModels) {
-    const disabledModels = checkCreds.providerSpecificData.disabledModels;
-    if (disabledModels.includes(model) || disabledModels.includes(`${provider}/${model}`)) {
-      log.warn("CHAT", `[${provider}/${model}] Model is disabled`);
-      return new Response(
-        JSON.stringify({
-          error: {
-            message: `Model '${model}' exhausted and isn't available right now. Please open Appverse.id dashboard for available models.`,
-            type: "invalid_request_error",
-            code: "model_not_available"
-          }
-        }),
-        {
-          status: 403,
-          headers: { "Content-Type": "application/json" }
-        }
+  // Check if model is disabled for this provider
+  console.log("[DISABLED_CHECK] ===== START =====");
+  console.log("[DISABLED_CHECK] Request modelStr:", modelStr, "resolved provider:", provider, "model:", model);
+  
+  // Also check all connections for this specific model (model might be resolved to wrong provider)
+  const allConns = await getProviderConnections({ isActive: true });
+  console.log("[DISABLED_CHECK] All active connections:", allConns.map(c => c.provider));
+  
+  // Check if model appears in any connection's disabledModels
+  let isModelDisabled = false;
+  for (const conn of allConns) {
+    const psd = conn.providerSpecificData || {};
+    const dm = psd.disabledModels || [];
+    if (dm.length > 0) {
+      const matches = dm.filter(m => 
+        m === model || 
+        m === modelStr || 
+        m.endsWith(`/${model}`) ||
+        m.includes(model)
       );
+      if (matches.length > 0) {
+        console.log("[DISABLED_CHECK] Found disabled model in provider:", conn.provider, "disabled:", dm);
+        isModelDisabled = true;
+        break;
+      }
     }
   }
+  
+  if (isModelDisabled) {
+    log.warn("CHAT", `[${provider}/${model}] Model is disabled`);
+    return new Response(
+      JSON.stringify({
+        error: {
+          message: `Model '${model}' exhausted and isn't available right now. Please open Appverse.id dashboard for available models.`,
+          type: "invalid_request_error",
+          code: "model_not_available"
+        }
+      }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
+  console.log("[DISABLED_CHECK] ===== END ===== Model not disabled, continuing...");
 
   // Log model routing (alias → actual model)
   if (modelStr !== `${provider}/${model}`) {
