@@ -37,7 +37,9 @@ const DEFAULT_SETTINGS = {
   outboundProxyUrl: "",
   outboundNoProxy: "",
   mitmRouterBaseUrl: DEFAULT_MITM_ROUTER_BASE,
-  rtkEnabled: false,
+  rtkEnabled: true,
+  cavemanEnabled: false,
+  cavemanLevel: "full",
 };
 
 function cloneDefaultData() {
@@ -634,6 +636,7 @@ export async function createCombo(data) {
     id: uuidv4(),
     name: data.name,
     models: data.models || [],
+    kind: data.kind || null,
     createdAt: now,
     updatedAt: now,
   };
