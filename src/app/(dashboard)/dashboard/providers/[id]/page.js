@@ -46,6 +46,7 @@ export default function ProviderDetailPage() {
   const [thinkingMode, setThinkingMode] = useState("auto");
   const [suggestedModels, setSuggestedModels] = useState([]);
   const [kiloFreeModels, setKiloFreeModels] = useState([]);
+  const [connectionDisabledModels, setConnectionDisabledModels] = useState({});
   const { copied, copy } = useCopyToClipboard();
 
   const providerInfo = providerNode
@@ -111,6 +112,13 @@ export default function ProviderDetailPage() {
       if (connectionsRes.ok) {
         const filtered = (connectionsData.connections || []).filter(c => c.provider === providerId);
         setConnections(filtered);
+        const disabledMap = {};
+        for (const conn of filtered) {
+          if (conn.providerSpecificData?.disabledModels?.length > 0) {
+            disabledMap[conn.id] = conn.providerSpecificData.disabledModels;
+          }
+        }
+        setConnectionDisabledModels(prev => ({ ...prev, ...disabledMap }));
       }
       if (proxyPoolsRes.ok) {
         setProxyPools(proxyPoolsData.proxyPools || []);
@@ -287,6 +295,28 @@ export default function ProviderDetailPage() {
       }
     } catch (error) {
       console.log("Error deleting connection:", error);
+    }
+  };
+
+  const handleToggleModelDisabled = async (connectionId, modelId, currentlyDisabled) => {
+    try {
+      const res = await fetch(`/api/providers/${connectionId}/models`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modelId, disabled: !currentlyDisabled }),
+      });
+      if (res.ok) {
+        setConnectionDisabledModels(prev => {
+          const connDisabled = prev[connectionId] || [];
+          if (currentlyDisabled) {
+            return { ...prev, [connectionId]: connDisabled.filter(m => m !== modelId) };
+          } else {
+            return { ...prev, [connectionId]: [...connDisabled, modelId] };
+          }
+        });
+      }
+    } catch (error) {
+      console.log("Error toggling model disabled:", error);
     }
   };
 
@@ -616,6 +646,9 @@ export default function ProviderDetailPage() {
           const existingAlias = Object.entries(modelAliases).find(
             ([, m]) => m === fullModel || m === oldFormatModel
           )?.[0];
+          const firstConn = connections[0];
+          const connDisabledModels = firstConn ? (connectionDisabledModels[firstConn.id] || []) : [];
+          const isModelDisabled = connDisabledModels.includes(model.id);
           return (
             <ModelRow
               key={model.id}
@@ -630,28 +663,37 @@ export default function ProviderDetailPage() {
               onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
               isTesting={testingModelId === model.id}
               isFree={model.isFree}
+              disabled={isModelDisabled}
+              onToggleDisabled={firstConn ? (modelId, currentlyDisabled) => handleToggleModelDisabled(firstConn.id, modelId, currentlyDisabled) : undefined}
             />
           );
         })}
 
         {/* Custom models inline */}
-        {customModels.map((model) => (
-          <ModelRow
-            key={model.id}
-            model={{ id: model.id }}
-            fullModel={`${providerDisplayAlias}/${model.id}`}
-            alias={model.alias}
-            copied={copied}
-            onCopy={copy}
-            onSetAlias={() => {}}
-            onDeleteAlias={() => handleDeleteAlias(model.alias)}
-            testStatus={modelTestResults[model.id]}
-            onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
-            isTesting={testingModelId === model.id}
-            isCustom
-            isFree={false}
-          />
-        ))}
+        {customModels.map((model) => {
+          const firstConn = connections[0];
+          const connDisabledModels = firstConn ? (connectionDisabledModels[firstConn.id] || []) : [];
+          const isModelDisabled = connDisabledModels.includes(model.id);
+          return (
+            <ModelRow
+              key={model.id}
+              model={{ id: model.id }}
+              fullModel={`${providerDisplayAlias}/${model.id}`}
+              alias={model.alias}
+              copied={copied}
+              onCopy={copy}
+              onSetAlias={() => {}}
+              onDeleteAlias={() => handleDeleteAlias(model.alias)}
+              testStatus={modelTestResults[model.id]}
+              onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
+              isTesting={testingModelId === model.id}
+              isCustom
+              isFree={false}
+              disabled={isModelDisabled}
+              onToggleDisabled={firstConn ? (modelId, currentlyDisabled) => handleToggleModelDisabled(firstConn.id, modelId, currentlyDisabled) : undefined}
+            />
+          );
+        })}
 
         {/* Add model button — inline, same style as model chips */}
         <button

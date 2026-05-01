@@ -175,6 +175,28 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
 
   const { provider, model } = modelInfo;
 
+  // Check if model is disabled (get credentials without exclusions to check first)
+  const checkCreds = await getProviderCredentials(provider, new Set(), model);
+  if (checkCreds && checkCreds.providerSpecificData?.disabledModels) {
+    const disabledModels = checkCreds.providerSpecificData.disabledModels;
+    if (disabledModels.includes(model) || disabledModels.includes(`${provider}/${model}`)) {
+      log.warn("CHAT", `[${provider}/${model}] Model is disabled`);
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: `Model '${model}' exhausted and isn't available right now. Please open Appverse.id dashboard for available models.`,
+            type: "invalid_request_error",
+            code: "model_not_available"
+          }
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" }
+        }
+      );
+    }
+  }
+
   // Log model routing (alias → actual model)
   if (modelStr !== `${provider}/${model}`) {
     log.info("ROUTING", `${modelStr} → ${provider}/${model}`);

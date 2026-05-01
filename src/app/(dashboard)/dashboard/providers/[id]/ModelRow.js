@@ -1,10 +1,13 @@
 import PropTypes from "prop-types";
+import { Toggle } from "@/shared/components";
 
-export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting }) {
+export default function ModelRow({ model, fullModel, alias, copied, onCopy, testStatus, isCustom, isFree, onDeleteAlias, onTest, isTesting, disabled, onToggleDisabled }) {
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
     : testStatus === "error"
     ? "border-red-500/40"
+    : disabled
+    ? "border-red-500/30 dark:border-red-500/30"
     : "border-border";
 
   const iconColor = testStatus === "ok"
@@ -64,6 +67,12 @@ export default function ModelRow({ model, fullModel, alias, copied, onCopy, test
             <span className="material-symbols-outlined text-sm">close</span>
           </button>
         )}
+        {onToggleDisabled && (
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="text-[10px] text-text-muted">Disable</span>
+            <Toggle checked={!disabled} onChange={() => onToggleDisabled(model.id, disabled)} size="sm" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -83,4 +92,6 @@ ModelRow.propTypes = {
   onDeleteAlias: PropTypes.func,
   onTest: PropTypes.func,
   isTesting: PropTypes.bool,
+  disabled: PropTypes.bool,
+  onToggleDisabled: PropTypes.func,
 };
