@@ -124,7 +124,7 @@ export default function Sidebar({ onClose }) {
 
   return (
     <>
-      <aside className="flex w-72 flex-col border-r border-black/5 dark:border-white/5 bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
+      <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
         {/* Traffic lights */}
         <div className="flex items-center gap-2 px-6 pt-5 pb-2">
           <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
@@ -183,10 +183,10 @@ export default function Sidebar({ onClose }) {
               href={item.href}
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 px-4 py-2 rounded-lg transition-all group",
+                "flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group",
                 isActive(item.href)
                   ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
               <span
@@ -197,12 +197,12 @@ export default function Sidebar({ onClose }) {
               >
                 {item.icon}
               </span>
-              <span className="text-sm font-medium">{item.label}</span>
+              <span className="text-[13px] font-medium">{item.label}</span>
             </Link>
           ))}
 
           {/* System section */}
-          <div className="pt-4 mt-2">
+          <div className="pt-4 mt-2 space-y-1">
             <p className="px-4 text-xs font-semibold text-text-muted/60 uppercase tracking-wider mb-2">
               System
             </p>
@@ -211,14 +211,14 @@ export default function Sidebar({ onClose }) {
             <button
               onClick={() => setMediaOpen((v) => !v)}
               className={cn(
-                "w-full flex items-center gap-3 px-4 py-2 rounded-lg transition-all group",
+                "w-full flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group",
                 pathname.startsWith("/dashboard/media-providers")
                   ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
               <span className="material-symbols-outlined text-[18px]">perm_media</span>
-              <span className="text-sm font-medium flex-1 text-left">Media Providers</span>
+              <span className="text-[13px] font-medium flex-1 text-left">Media Providers</span>
               <span className="material-symbols-outlined text-[14px] transition-transform" style={{ transform: mediaOpen ? "rotate(180deg)" : "rotate(0deg)" }}>
                 expand_more
               </span>
@@ -234,7 +234,7 @@ export default function Sidebar({ onClose }) {
                       "flex items-center gap-3 px-4 py-1.5 rounded-lg transition-all group",
                       pathname.startsWith(`/dashboard/media-providers/${kind.id}`)
                         ? "bg-primary/10 text-primary"
-                        : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                        : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                     )}
                   >
                     <span className="material-symbols-outlined text-[16px]">{kind.icon}</span>
@@ -249,7 +249,7 @@ export default function Sidebar({ onClose }) {
                     "flex items-center gap-3 px-4 py-1.5 rounded-lg transition-all group",
                     pathname.startsWith(COMBINED_WEB_ITEM.href)
                       ? "bg-primary/10 text-primary"
-                      : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
                   <span className="material-symbols-outlined text-[16px]">{COMBINED_WEB_ITEM.icon}</span>
@@ -264,10 +264,10 @@ export default function Sidebar({ onClose }) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-2 rounded-lg transition-all group",
+                  "flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
-                    : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                    : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                 )}
               >
                 <span
@@ -278,7 +278,7 @@ export default function Sidebar({ onClose }) {
                 >
                   {item.icon}
                 </span>
-                <span className="text-sm font-medium">{item.label}</span>
+                <span className="text-[13px] font-medium">{item.label}</span>
               </Link>
             ))}
 
@@ -291,10 +291,10 @@ export default function Sidebar({ onClose }) {
                   href={item.href}
                   onClick={onClose}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-2 rounded-lg transition-all group",
+                    "flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group",
                     isActive(item.href)
                       ? "bg-primary/10 text-primary"
-                      : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                      : "text-text-muted hover:bg-surface-2 hover:text-text-main"
                   )}
                 >
                   <span
@@ -305,7 +305,7 @@ export default function Sidebar({ onClose }) {
                   >
                     {item.icon}
                   </span>
-                  <span className="text-sm font-medium">{item.label}</span>
+                  <span className="text-[13px] font-medium">{item.label}</span>
                 </Link>
               ) : null;
             })}
@@ -315,10 +315,10 @@ export default function Sidebar({ onClose }) {
               href="/dashboard/profile"
               onClick={onClose}
               className={cn(
-                "flex items-center gap-3 px-4 py-2 rounded-lg transition-all group",
+                "flex items-center gap-3 px-3 py-1.5 rounded-lg transition-all group",
                 isActive("/dashboard/profile")
                   ? "bg-primary/10 text-primary"
-                  : "text-text-muted hover:bg-surface/50 hover:text-text-main"
+                  : "text-text-muted hover:bg-surface-2 hover:text-text-main"
               )}
             >
               <span
@@ -329,13 +329,13 @@ export default function Sidebar({ onClose }) {
               >
                 settings
               </span>
-              <span className="text-sm font-medium">Settings</span>
+              <span className="text-[13px] font-medium">Settings</span>
             </Link>
           </div>
         </nav>
 
         {/* Footer section */}
-        <div className="p-3 border-t border-black/5 dark:border-white/5">
+        <div className="p-3 border-t border-border-subtle">
           {/* Shutdown button */}
           <Button
             variant="outline"
