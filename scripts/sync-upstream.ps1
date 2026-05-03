@@ -7,7 +7,11 @@
   [switch]$Apply,
   [switch]$NoPush,
   [switch]$AllowDirty,
-  [switch]$NoPause
+  [switch]$NoPause,
+  [switch]$RunBuild,
+  [switch]$RunTests,
+  [string]$BuildCommand = "npm run build",
+  [string]$TestCommand = "npm test"
 )
 
 Set-StrictMode -Version Latest
@@ -40,6 +44,14 @@ function Run-Step {
 function Ensure-GitAvailable {
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     throw "git command tidak ditemukan di PATH."
+  }
+}
+
+function Ensure-CommandAvailable {
+  param([Parameter(Mandatory = $true)] [string]$CommandName)
+
+  if (-not (Get-Command $CommandName -ErrorAction SilentlyContinue)) {
+    throw "Command '$CommandName' tidak ditemukan di PATH."
   }
 }
 
@@ -93,6 +105,11 @@ $originalBranch = $null
 
 try {
   Ensure-GitAvailable
+
+  if ($RunBuild -or $RunTests) {
+    Ensure-CommandAvailable -CommandName "npm"
+  }
+
   Ensure-CleanWorkingTree
 
   $originalBranch = (git rev-parse --abbrev-ref HEAD).Trim()
@@ -116,6 +133,14 @@ try {
 
   Run-Step "Checkout deploy branch '$DeployBranch'" "git checkout $DeployBranch"
   Run-Step "Merge '$MirrorBranch' into '$DeployBranch'" "git merge $MirrorBranch"
+
+  if ($RunBuild) {
+    Run-Step "Run build validation" $BuildCommand
+  }
+
+  if ($RunTests) {
+    Run-Step "Run test validation" $TestCommand
+  }
 
   if (-not $NoPush) {
     Run-Step "Push deploy '$DeployBranch' to '$OriginRemote'" "git push $OriginRemote $DeployBranch"
